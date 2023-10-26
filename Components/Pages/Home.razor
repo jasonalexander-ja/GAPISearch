@@ -1,6 +1,4 @@
-﻿@using Microsoft.AspNetCore.Mvc
-
-@using Google.Apis.Auth.AspNetCore3
+﻿@using Google.Apis.Auth.AspNetCore3
 @using Google.Apis.Auth.OAuth2
 @using Google.Apis.Drive.v3
 @using Google.Apis.Services
@@ -11,19 +9,32 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudText Typo="Typo.h1">Hello, world!</MudText>
 
-Welcome to your new app.
+<MudTable Items="@FileNames.Take(4)" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@Loading" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh>File Name</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="File name">@context</MudTd>
+    </RowTemplate>
+</MudTable>
+
+
 
 @code {
 
     [Inject]
-    private IGoogleAuthProvider? auth { get; set; }
+    private IGoogleAuthProvider? Auth { get; set; }
+
+    public List<string> FileNames { get; set; } = new List<string>();
+
+    public bool Loading { get; set; } = true;
 
 
     protected override async Task OnParametersSetAsync()
     {
-        if (auth == null)
+        if (Auth == null)
         {
             Console.WriteLine("Auth is null. ");
             goto End;
@@ -31,7 +42,7 @@ Welcome to your new app.
         
         try 
         {
-            GoogleCredential cred = await auth.GetCredentialAsync();
+            GoogleCredential cred = await Auth.GetCredentialAsync();
             if (cred == null)
             {
                 Console.WriteLine("Cred is null. ");

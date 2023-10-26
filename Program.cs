@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 using GAPISearch.Components;
 using Google.Apis.Auth.AspNetCore3;
+using MudBlazor.Services;
 
 
 // http://localhost:5056
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddMudServices();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
