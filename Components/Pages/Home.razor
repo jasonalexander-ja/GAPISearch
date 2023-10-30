@@ -1,6 +1,7 @@
 ﻿@using Google.Apis.Auth.AspNetCore3
 @using Google.Apis.Auth.OAuth2
 @using Google.Apis.Drive.v3
+@using Google.Apis.Drive.v3.Data
 @using Google.Apis.Services
 
 @page "/"
@@ -11,12 +12,16 @@
 
 <MudText Typo="Typo.h1">Hello, world!</MudText>
 
-<MudTable Items="@FileNames.Take(4)" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@Loading" LoadingProgressColor="Color.Info">
+<MudTable Items="@Files" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@Loading" LoadingProgressColor="Color.Info">
     <HeaderContent>
         <MudTh>File Name</MudTh>
+        <MudTh>Icon</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="File name">@context</MudTd>
+        <MudTd DataLabel="File name">@context.Name</MudTd>
+        <MudTd DataLabel="Icon">
+            @string.Join(", ", context.AppProperties.Values)
+        </MudTd>
     </RowTemplate>
 </MudTable>
 
@@ -27,7 +32,7 @@
     [Inject]
     private IGoogleAuthProvider? Auth { get; set; }
 
-    public List<string> FileNames { get; set; } = new List<string>();
+    public List<File> Files { get; set; } = new List<File>();
 
     public bool Loading { get; set; } = true;
 
@@ -53,12 +58,8 @@
                 HttpClientInitializer = cred
             });
             var files = await service.Files.List().ExecuteAsync();
-            var fileNames = files.Files.Select(x => x.Name).ToList();
-            Console.WriteLine($"Found `{fileNames.Count()}` files. ");
-            foreach (string fileName in fileNames)
-            {
-                Console.WriteLine(fileName);
-            }
+            Files = files.Files.ToList();
+            Loading = false;
         }
         catch (Exception ex) 
         {
