@@ -3,6 +3,7 @@
 @using Google.Apis.Drive.v3
 @using Google.Apis.Drive.v3.Data
 @using Google.Apis.Services
+@inject ISnackbar Snackbar
 
 @page "/"
 
@@ -10,60 +11,105 @@
 
 <PageTitle>Home</PageTitle>
 
-<MudText Typo="Typo.h1">Hello, world!</MudText>
+<MudText Typo="Typo.h3">Google Drive Search</MudText>
 
-<MudTable Items="@Files" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@Loading" LoadingProgressColor="Color.Info">
-    <HeaderContent>
-        <MudTh>File Name</MudTh>
-        <MudTh>Icon</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="File name">@context.Name</MudTd>
-        <MudTd DataLabel="Icon">
-            @string.Join(", ", context.AppProperties.Values)
-        </MudTd>
-    </RowTemplate>
-</MudTable>
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="3" />
+    <MudItem xs="6" Style="display: flex;">
+        <MudTextField @bind-Value="SearchString" Label="Search" Variant="Variant.Text" OnKeyPress="OnKeyPress"></MudTextField>
+        <MudButton OnClick="Search" Variant="Variant.Filled">Search</MudButton>
+    </MudItem>
+    <MudItem xs="3" />
+    <MudItem xs="3" />
+    <MudItem xs="6">
+        <MudTable Items="@Files" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@Loading" LoadingProgressColor="Color.Info">
+            <HeaderContent>
+                <MudTh>File Name</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="File name">@context.Name</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudItem>
+    <MudItem xs="3" />
+</MudGrid>
 
 
 
-@code {
-
+    @code {
+    public string SearchString { get; set; } = "";
     [Inject]
     private IGoogleAuthProvider? Auth { get; set; }
-
+    private GoogleCredential? Cred { get; set; }
     public List<File> Files { get; set; } = new List<File>();
+    public bool Loading { get; set; } = false;
 
-    public bool Loading { get; set; } = true;
+    public async Task OnKeyPress(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await Search();
+    }
 
+    public async Task Search() 
+    {
+        string NormalisedSearchString = SearchString.Trim().ToLower().Replace("'", "\'");
+        if (string.IsNullOrEmpty(NormalisedSearchString))
+        {
+            Snackbar.Add("Please provide a search string. ", Severity.Warning);
+            return;
+        }
+
+        Loading = true;
+        StateHasChanged();
+
+        var service = new DriveService(new BaseClientService.Initializer
+        {
+            HttpClientInitializer = Cred
+        });
+        var fileService = service.Files.List();
+        fileService.Q = $"name contains '{NormalisedSearchString}'";
+        fileService.Corpora = "allDrives";
+        fileService.SupportsAllDrives = true;
+        fileService.SupportsTeamDrives = true;
+        fileService.IncludeItemsFromAllDrives = true;
+
+        try
+        {
+            var files = await fileService.ExecuteAsync();
+            Files = files.Files.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error searching GDrive: {ex.Message}", Severity.Error);
+        }
+
+        Loading = false;
+        StateHasChanged();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         if (Auth == null)
         {
-            Console.WriteLine("Auth is null. ");
+            Snackbar.Add("Injected authorisation is null. ", Severity.Error);
             goto End;
         }
+
+        if (Cred is not null)
+            goto End;
         
         try 
         {
-            GoogleCredential cred = await Auth.GetCredentialAsync();
-            if (cred == null)
+            Cred = await Auth.GetCredentialAsync();
+            if (Cred == null)
             {
-                Console.WriteLine("Cred is null. ");
+                Snackbar.Add("Failed to get GAPI Credentials. ", Severity.Error);
                 goto End;
             }
-            var service = new DriveService(new BaseClientService.Initializer
-            {
-                HttpClientInitializer = cred
-            });
-            var files = await service.Files.List().ExecuteAsync();
-            Files = files.Files.ToList();
-            Loading = false;
         }
         catch (Exception ex) 
         {
-            Console.WriteLine($"Error encountered: {ex.Message}");
+            Snackbar.Add($"Error encountered: {ex.Message}", Severity.Error);
         }
 
         End:
